@@ -27,7 +27,6 @@ def get_db_connection():
 def index():
     return render_template('index.html')
 
-# ESTA É A ROTA QUE ESTAVA DANDO 404 - AGORA ESTÁ COMPLETA
 @app.route('/horarios_disponiveis', methods=['POST'])
 def horarios_disponiveis():
     dados = request.json

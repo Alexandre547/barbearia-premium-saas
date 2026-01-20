@@ -50,3 +50,39 @@ input:focus { border-color: var(--gold); outline: none; }
 
 .btn-agendar { width: 100%; padding: 18px; background: var(--gold); color: black; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
 .btn-delete { background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+/* --- ESTILIZAÇÃO DO RODAPÉ --- */
+.footer-cliente {
+    text-align: center;
+    padding: 30px 20px;
+    margin-top: 20px;
+    border-top: 1px solid #222;
+    background: #000; /* Fundo preto para combinar com a sidebar */
+}
+
+.footer-cliente p {
+    color: var(--text-gray);
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.insta-link {
+    color: var(--gold);
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.3s;
+}
+
+.insta-link:hover {
+    transform: scale(1.05);
+    opacity: 0.8;
+}
+
+/* Ajuste para que o rodapé não fique colado no container de agendamento */
+.container-cliente {
+    margin-bottom: 40px; /* Dá espaço antes do rodapé */
+}
