@@ -93,6 +93,11 @@ def login():
         return "Acesso negado."
     return render_template('login.html')
 
+@app.route('/logout')
+def logout():
+    session.clear() # Limpa os dados de login da sessão
+    return redirect(url_for('login')) # Redireciona para a tela de login
+
 @app.route('/admin')
 def admin():
     if not session.get('logado'): return redirect(url_for('login'))
