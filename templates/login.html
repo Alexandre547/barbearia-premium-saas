@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Acesso Restrito</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <h2 style="color: var(--gold); margin-bottom: 20px;">Acesso Restrito</h2>
+        <form action="/login" method="POST">
+            <div class="input-group"><label>Usuário</label><input type="text" name="usuario" required></div>
+            <div class="input-group"><label>Senha</label><input type="password" name="senha" required></div>
+            <button type="submit" class="btn-agendar">Entrar no Painel</button>
+        </form>
+    </div>
+</body>
+</html>

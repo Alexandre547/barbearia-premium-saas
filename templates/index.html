@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barbearia Premium - Agendamento</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="hero">
+        <div class="hero-overlay">
+            <h1>BARBEARIA PREMIUM</h1>
+            <p>Excelência em cada detalhe - Birigui/SP</p>
+        </div>
+    </header>
+
+    <div class="container-cliente">
+        <h2 style="color: var(--gold); margin-bottom: 10px;">Agende seu Horário</h2>
+        <p class="subtitle">Rápido, fácil e profissional.</p>
+        
+        <form id="formAgendamento">
+            <div class="input-group">
+                <label>Nome Completo</label>
+                <input type="text" id="nome" placeholder="Ex: Alexandre Oliveira" required>
+            </div>
+
+            <div class="input-group">
+                <label>Seu WhatsApp (com DDD)</label>
+                <input type="text" id="whatsapp" placeholder="Ex: 18999999999" required>
+            </div>
+
+            <div class="input-group">
+                <label>Serviço Desejado</label>
+                <select id="servico">
+                    <option value="Corte Simples" data-preco="35.00">Corte Simples - R$ 35,00</option>
+                    <option value="Corte Degrade/Navalhado" data-preco="40.00">Corte Degradê - R$ 40,00</option>
+                    <option value="Barba Completa" data-preco="25.00">Barba Completa - R$ 25,00</option>
+                    <option value="Combo (Corte + Barba)" data-preco="55.00">Combo - R$ 55,00</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Selecione a Data</label>
+                <input type="date" id="data_agendamento" onchange="buscarHorarios()">
+            </div>
+
+            <div class="input-group">
+                <label>Escolha um Horário Disponível</label>
+                <div id="lista_horarios" class="grade-horarios">
+                    <p style="color: #666; font-size: 0.9rem;">Selecione uma data primeiro...</p>
+                </div>
+                <input type="hidden" id="horario_selecionado">
+            </div>
+
+            <div class="input-group">
+                <label>Forma de Pagamento</label>
+                <select id="pagamento">
+                    <option value="Pix">Pix</option>
+                    <option value="Cartão">Cartão de Crédito/Débito</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                </select>
+            </div>
+
+            <button type="button" class="btn-agendar" onclick="finalizarAgendamento()">CONCLUIR AGENDAMENTO</button>
+        </form>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Barbearia Premium - Birigui/SP</p>
+    </footer>
+
+    <script>
+        // 1. BUSCAR HORÁRIOS NO SERVIDOR (POSTGRESQL)
+        async function buscarHorarios() {
+            const data = document.getElementById('data_agendamento').value;
+            const listaContainer = document.getElementById('lista_horarios');
+            
+            if (!data) return;
+
+            listaContainer.innerHTML = "<p>Carregando horários...</p>";
+
+            try {
+                const response = await fetch('/horarios_disponiveis', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ data: data })
+                });
+
+                const horarios = await response.json();
+                listaContainer.innerHTML = ""; // Limpa o carregando
+
+                if (horarios.length === 0) {
+                    listaContainer.innerHTML = "<p style='color: #f44336;'>Nenhum horário disponível ou barbearia fechada.</p>";
+                    return;
+                }
+
+                horarios.forEach(hora => {
+                    const btn = document.createElement('button');
+                    btn.type = "button";
+                    btn.className = "btn-horario";
+                    btn.innerText = hora;
+                    btn.onclick = () => selecionarHorario(btn, hora);
+                    listaContainer.appendChild(btn);
+                });
+
+            } catch (error) {
+                console.error("Erro ao buscar horários:", error);
+                listaContainer.innerHTML = "<p>Erro ao carregar horários.</p>";
+            }
+        }
+
+        // 2. SELECIONAR HORÁRIO NA GRADE
+        function selecionarHorario(botao, hora) {
+            // Remove destaque de todos os outros
+            document.querySelectorAll('.btn-horario').forEach(b => b.classList.remove('selecionado'));
+            
+            // Destaca o clicado
+            botao.classList.add('selecionado');
+            
+            // Guarda o valor no input oculto
+            document.getElementById('horario_selecionado').value = hora;
+        }
+
+    async function finalizarAgendamento() {
+        const nome = document.getElementById('nome').value;
+        const telRaw = document.getElementById('whatsapp').value;
+        const servicoSelect = document.getElementById('servico');
+        const servicoNome = servicoSelect.value;
+        const preco = servicoSelect.options[servicoSelect.selectedIndex].dataset.preco;
+        const pagamento = document.getElementById('pagamento').value;
+        const dataSomente = document.getElementById('data_agendamento').value;
+        
+        // CORREÇÃO: Pega apenas os 5 primeiros caracteres (ex: 08:30)
+        let horaSomente = document.getElementById('horario_selecionado').value;
+        if (horaSomente.length > 5) {
+            horaSomente = horaSomente.slice(0, 5);
+        }
+
+        if (!nome || !telRaw || !dataSomente || !horaSomente) {
+            alert("Por favor, preencha todos os campos e escolha um horário!");
+            return;
+        }
+
+        const dataISO = `${dataSomente}T${horaSomente}`;
+        const telLimpo = telRaw.replace(/\D/g, '');
+        const numeroProfissional = "5518988231687"; 
+
+        const dados = { 
+            cliente: nome, 
+            telefone: telLimpo, 
+            servico: servicoNome, 
+            data: dataISO, 
+            pagamento: pagamento, 
+            valor: preco 
+        };
+
+        try {
+            const response = await fetch('/agendar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(dados)
+            });
+
+            if (response.ok) {
+                const emojiCheck = decodeURIComponent('%E2%9C%85'); 
+                
+                // Formatação limpa da data para o WhatsApp
+                const partesData = dataSomente.split('-');
+                const dataBR = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
+
+                const mensagemFinal = `${emojiCheck} *NOVO AGENDAMENTO*\n\n` +
+                                    `*Cliente:* ${nome}\n` +
+                                    `*Serviço:* ${servicoNome}\n` +
+                                    `*Valor:* R$ ${preco}\n` +
+                                    `*Data:* ${dataBR} às ${horaSomente}\n` + // Agora sem segundos
+                                    `*Pagamento:* ${pagamento}`;
+
+                const linkZap = `https://api.whatsapp.com/send?phone=${numeroProfissional}&text=${encodeURIComponent(mensagemFinal)}`;
+                window.open(linkZap, '_blank');
+                location.reload();
+            } else {
+                const erroJson = await response.json();
+                alert(erroJson.mensagem || "Erro ao agendar.");
+            }
+        } catch (e) {
+            console.error("Erro detectado:", e); 
+            alert("Erro na conexão com o servidor.");
+        }
+    }
+</script>
+</body>
+</html>

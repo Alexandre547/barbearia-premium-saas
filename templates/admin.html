@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin - Barbearia</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="admin-body">
+
+    <div class="dashboard-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2 style="color: var(--gold);">ADM</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" id="btn-dash" onclick="trocarAba('secao-dashboard', 'btn-dash')">Dashboard</a>
+                <a href="#" class="nav-item" id="btn-horarios" onclick="trocarAba('secao-horarios', 'btn-horarios')">Configurações</a>
+                <a href="/" class="nav-item">Visualizar Site</a>
+                <hr style="border: 0.1px solid #333; margin: 20px 0;">
+                <a href="/logout" class="nav-item" style="color: #f44336;">Sair</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            
+            <div id="secao-dashboard" class="aba-conteudo">
+                <h1 class="page-title">Gestão da Barbearia</h1>
+                
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <h3>LUCRO DE HOJE</h3>
+                        <p>R$ {{ "%.2f"|format(lucro_dia) }}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>LUCRO DA SEMANA</h3>
+                        <p>R$ {{ "%.2f"|format(lucro_semana) }}</p>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Cliente</th>
+                                <th>WhatsApp</th>
+                                <th>Serviço</th>
+                                <th>Valor</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in agendamentos %}
+                            <tr id="linha-{{ item.id }}">
+                                <td>{{ item.data_hora.strftime('%d/%m/%Y %H:%M') if item.data_hora else 'N/A' }}</td>
+                                <td>{{ item.cliente }}</td>
+                                <td>{{ item.telefone }}</td>
+                                <td>{{ item.servico }}</td>
+                                <td style="color: var(--gold); font-weight: bold;">R$ {{ "%.2f"|format(item.valor) }}</td>
+                                <td>
+                                    <button class="btn-delete" onclick="deletarAgendamento({{ item.id }})">Excluir</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="secao-horarios" class="aba-conteudo" style="display: none;">
+                <h1 class="page-title">Configurar Expediente</h1>
+                <section class="stat-card" style="max-width: 600px;">
+                    <form id="formExpediente">
+                        <div class="input-group">
+                            <label>Dia da Semana</label>
+                            <select id="dia_semana">
+                                <option value="0">Segunda-feira</option>
+                                <option value="1">Terça-feira</option>
+                                <option value="2">Quarta-feira</option>
+                                <option value="3">Quinta-feira</option>
+                                <option value="4">Sexta-feira</option>
+                                <option value="5">Sábado</option>
+                                <option value="6">Domingo</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Horário de Início</label>
+                            <input type="time" id="inicio">
+                        </div>
+                        <div class="input-group">
+                            <label>Horário de Fim</label>
+                            <input type="time" id="fim">
+                        </div>
+                        <button type="button" class="btn-agendar" onclick="salvarHorario()">SALVAR CONFIGURAÇÃO</button>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function trocarAba(idAba, idBtn) {
+            document.querySelectorAll('.aba-conteudo').forEach(a => a.style.display = 'none');
+            document.getElementById(idAba).style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            document.getElementById(idBtn).classList.add('active');
+        }
+
+        async function deletarAgendamento(id) {
+            if(confirm("Deseja realmente excluir este agendamento?")) {
+                const res = await fetch(`/deletar/${id}`, { method: 'DELETE' });
+                if(res.ok) { 
+                    // Remove a linha visualmente
+                    const linha = document.getElementById(`linha-${id}`);
+                    if(linha) linha.remove();
+                    // RECARREGA para atualizar os lucros no topo
+                    location.reload();
+                }
+            }
+        }
+
+        async function salvarHorario() {
+            const dados = {
+                dia: document.getElementById('dia_semana').value,
+                inicio: document.getElementById('inicio').value,
+                fim: document.getElementById('fim').value
+            };
+            const res = await fetch('/salvar_expediente', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(dados)
+            });
+            if(res.ok) alert("Horário salvo com sucesso!");
+        }
+    </script>
+</body>
+</html>
