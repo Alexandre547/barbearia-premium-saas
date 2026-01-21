@@ -121,7 +121,27 @@ def admin():
                         agendamentos=agendamentos, 
                         lucro_dia=lucro_dia, 
                         lucro_semana=lucro_semana)
-
+@app.route('/deletar/<int:id>', methods=['DELETE'])
+def deletar(id):
+    # Verifica se o administrador está logado antes de permitir a exclusão
+    if not session.get('logado'): 
+        return jsonify({"erro": "Não autorizado"}), 403
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"erro": "Erro de conexão"}), 500
+        
+    try:
+        cursor = conn.cursor()
+        # Executa o comando de exclusão no PostgreSQL
+        cursor.execute("DELETE FROM agendamentos WHERE id = %s", (id,))
+        conn.commit()
+        return jsonify({"status": "sucesso"})
+    except Exception as e:
+        return jsonify({"status": "erro", "mensagem": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
 if __name__ == '__main__':
     app.run(debug=True)
 

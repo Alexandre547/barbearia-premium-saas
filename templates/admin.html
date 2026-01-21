@@ -108,17 +108,28 @@
         }
 
         async function deletarAgendamento(id) {
-            if(confirm("Deseja realmente excluir este agendamento?")) {
-                const res = await fetch(`/deletar/${id}`, { method: 'DELETE' });
-                if(res.ok) { 
-                    // Remove a linha visualmente
-                    const linha = document.getElementById(`linha-${id}`);
-                    if(linha) linha.remove();
-                    // RECARREGA para atualizar os lucros no topo
-                    location.reload();
-                }
+    if(confirm("Deseja realmente excluir este agendamento?")) {
+        try {
+            // A chamada fetch deve bater exatamente na rota que criamos acima
+            const res = await fetch(`/deletar/${id}`, { 
+                method: 'DELETE' 
+            });
+
+            if(res.ok) { 
+                // Remove a linha da tabela visualmente
+                const linha = document.getElementById(`linha-${id}`);
+                if(linha) linha.remove();
+                
+                // Recarrega a página para que o Flask recalcule lucro_dia e lucro_semana
+                location.reload(); 
+            } else {
+                alert("Erro ao excluir no servidor.");
             }
+        } catch (error) {
+            console.error("Erro na requisição:", error);
         }
+    }
+}
 
         async function salvarHorario() {
             const dados = {
