@@ -131,19 +131,30 @@
     }
 }
 
-        async function salvarHorario() {
-            const dados = {
-                dia: document.getElementById('dia_semana').value,
-                inicio: document.getElementById('inicio').value,
-                fim: document.getElementById('fim').value
-            };
-            const res = await fetch('/salvar_expediente', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(dados)
-            });
-            if(res.ok) alert("Horário salvo com sucesso!");
-        }
+async function salvarExpediente() {
+    const configs = [];
+    // Captura os dados de todos os dias (0=Segunda, 6=Domingo)
+    for (let i = 0; i < 7; i++) {
+        configs.push({
+            dia: i,
+            inicio: document.getElementById(`inicio-${i}`).value,
+            fim: document.getElementById(`fim-${i}`).value
+        });
+    }
+
+    const res = await fetch('/configuracoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configs)
+    });
+
+    if (res.ok) {
+        alert("✅ Horários de atendimento salvos com sucesso!");
+        location.reload();
+    } else {
+        alert("❌ Erro ao salvar horários.");
+    }
+}
     </script>
 </body>
 </html>
