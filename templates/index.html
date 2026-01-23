@@ -149,38 +149,27 @@
         };
 
         try {
-            const response = await fetch('/agendar', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(dados)
-            });
+        const response = await fetch('/agendar', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(dados)
+        });
 
-            if (response.ok) {
-                const emojiCheck = decodeURIComponent('%E2%9C%85'); 
-                
-                // Formatação limpa da data para o WhatsApp
-                const partesData = dataSomente.split('-');
-                const dataBR = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
-
-                const mensagemFinal = `${emojiCheck} *NOVO AGENDAMENTO*\n\n` +
-                                    `*Cliente:* ${nome}\n` +
-                                    `*Serviço:* ${servicoNome}\n` +
-                                    `*Valor:* R$ ${preco}\n` +
-                                    `*Data:* ${dataBR} às ${horaSomente}\n` + // Agora sem segundos
-                                    `*Pagamento:* ${pagamento}`;
-
-                const linkZap = `https://api.whatsapp.com/send?phone=${numeroProfissional}&text=${encodeURIComponent(mensagemFinal)}`;
-                window.open(linkZap, '_blank');
-                location.reload();
-            } else {
-                const erroJson = await response.json();
-                alert(erroJson.mensagem || "Erro ao agendar.");
-            }
-        } catch (e) {
-            console.error("Erro detectado:", e); 
-            alert("Erro na conexão com o servidor.");
+        if (response.ok) {
+            // Sucesso
+            const msg = encodeURIComponent(`✅ *NOVO AGENDAMENTO*\n*Cliente:* ${nome}\n*Data:* ${dataBR} às ${hora}`);
+            window.open(`https://api.whatsapp.com/send?phone=5518988231687&text=${msg}`, '_blank');
+            location.reload();
+        } else {
+            // Se o servidor retornar erro (como horário passado), mostramos o alerta e NÃO recarregamos a página
+            const erroJson = await response.json();
+            alert("⚠️ " + erroJson.mensagem); 
+            buscarHorarios(); // Atualiza a lista de horários para sumir com o que expirou
         }
+    } catch (e) {
+        alert("Erro na conexão.");
     }
+}
 </script>
 </body>
 </html>

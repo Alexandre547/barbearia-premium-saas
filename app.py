@@ -1,5 +1,6 @@
 import os
 import psycopg2
+import pytz
 from psycopg2.extras import RealDictCursor
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from datetime import datetime, timedelta
@@ -27,15 +28,20 @@ def get_db_connection():
 def index():
     return render_template('index.html')
 
+# Defina o fuso horário brasileiro
+FUSO_BR = pytz.timezone('America/Sao_Paulo')
+
 @app.route('/horarios_disponiveis', methods=['POST'])
 def horarios_disponiveis():
     dados = request.json
-    data_str = dados['data']
-    dt_escolhida = datetime.strptime(data_str, '%Y-%m-%d')
-    dt_agora = datetime.now()
-
-    # TRAVA 2: Se a data for anterior a hoje, retorna vazio
-    if dt_escolhida.date() < dt_agora.date():
+    data_sel_str = dados['data']
+    dt_escolhida = datetime.strptime(data_sel_str, '%Y-%m-%d')
+    
+    # PEGA A HORA EXATA DE BRASÍLIA
+    agora_br = datetime.now(FUSO_BR)
+    
+    # Se o cliente escolher um dia que já passou (ontem), nem abre o banco
+    if dt_escolhida.date() < agora_br.date():
         return jsonify([])
 
     conn = get_db_connection()
@@ -47,22 +53,25 @@ def horarios_disponiveis():
         conn.close()
         return jsonify([])
 
-    cursor.execute("SELECT to_char(data_hora, 'HH24:MI') as h FROM agendamentos WHERE data_hora::date = %s", (data_str,))
+    cursor.execute("SELECT to_char(data_hora, 'HH24:MI') as h FROM agendamentos WHERE data_hora::date = %s", (data_sel_str,))
     ocupados = [i['h'] for i in cursor.fetchall()]
     conn.close()
 
     disponiveis = []
+    # Cria os slots baseados no expediente
     atual = datetime.combine(dt_escolhida.date(), exp['hora_inicio'])
     fim = datetime.combine(dt_escolhida.date(), exp['hora_fim'])
+    
+    # Precisamos "avisar" ao Python que esses slots são do fuso de Brasília para comparar certo
+    atual = FUSO_BR.localize(atual)
+    fim = FUSO_BR.localize(fim)
 
     while atual <= fim:
         h_str = atual.strftime('%H:%M')
-        # TRAVA 3: Se a data for HOJE, só mostra horários posteriores à hora atual
-        if dt_escolhida.date() == dt_agora.date():
-            if atual > dt_agora + timedelta(minutes=10): # Margem de 10 min para o cliente preencher
-                if h_str not in ocupados:
-                    disponiveis.append(h_str)
-        else:
+        
+        # REGRA DE OURO: Só mostra o horário se ele for maior que "AGORA" em Brasília
+        # Damos 10 minutos de lambuja para o cliente preencher o formulário
+        if atual > agora_br + timedelta(minutes=10):
             if h_str not in ocupados:
                 disponiveis.append(h_str)
         
@@ -73,11 +82,13 @@ def horarios_disponiveis():
 @app.route('/agendar', methods=['POST'])
 def agendar():
     d = request.json
-    dt_agendamento = datetime.strptime(d['data'], '%Y-%m-%dT%H:%M')
+    # Converte a data do agendamento e coloca no fuso BR
+    dt_agend = datetime.strptime(d['data'], '%Y-%m-%dT%H:%M')
+    dt_agend = FUSO_BR.localize(dt_agend)
     
-    # TRAVA FINAL: Bloqueio total de datas passadas no banco
-    if dt_agendamento < datetime.now():
-        return jsonify({"status": "erro", "mensagem": "Não é possível agendar no passado!"}), 400
+    # Trava final de segurança
+    if dt_agend < datetime.now(FUSO_BR):
+        return jsonify({"status": "erro", "mensagem": "Este horário acabou de expirar! Escolha outro."}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
