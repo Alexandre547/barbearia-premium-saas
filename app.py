@@ -30,55 +30,62 @@ def index():
 @app.route('/horarios_disponiveis', methods=['POST'])
 def horarios_disponiveis():
     dados = request.json
-    data_sel = dados.get('data')
-    
-    if not data_sel:
+    data_str = dados['data']
+    dt_escolhida = datetime.strptime(data_str, '%Y-%m-%d')
+    dt_agora = datetime.now()
+
+    # TRAVA 2: Se a data for anterior a hoje, retorna vazio
+    if dt_escolhida.date() < dt_agora.date():
         return jsonify([])
 
-    dt = datetime.strptime(data_sel, '%Y-%m-%d')
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    
-    # Busca o expediente para o dia da semana (0=Segunda, 6=Domingo)
-    cursor.execute("SELECT hora_inicio, hora_fim FROM expediente WHERE dia_semana = %s", (dt.weekday(),))
+    cursor.execute("SELECT hora_inicio, hora_fim FROM expediente WHERE dia_semana = %s", (dt_escolhida.weekday(),))
     exp = cursor.fetchone()
     
     if not exp:
         conn.close()
-        return jsonify([]) # Barbearia fechada neste dia
+        return jsonify([])
 
-    # Busca horários já ocupados
-    cursor.execute("SELECT to_char(data_hora, 'HH24:MI') as h FROM agendamentos WHERE data_hora::date = %s", (data_sel,))
+    cursor.execute("SELECT to_char(data_hora, 'HH24:MI') as h FROM agendamentos WHERE data_hora::date = %s", (data_str,))
     ocupados = [i['h'] for i in cursor.fetchall()]
-
-    # Gera slots de 30 em 30 minutos
-    disponiveis = []
-    atual = datetime.combine(dt.date(), exp['hora_inicio'])
-    fim = datetime.combine(dt.date(), exp['hora_fim'])
-    
-    while atual <= fim:
-        h = atual.strftime('%H:%M')
-        if h not in ocupados:
-            disponiveis.append(h)
-        atual += timedelta(minutes=30)
-    
     conn.close()
+
+    disponiveis = []
+    atual = datetime.combine(dt_escolhida.date(), exp['hora_inicio'])
+    fim = datetime.combine(dt_escolhida.date(), exp['hora_fim'])
+
+    while atual <= fim:
+        h_str = atual.strftime('%H:%M')
+        # TRAVA 3: Se a data for HOJE, só mostra horários posteriores à hora atual
+        if dt_escolhida.date() == dt_agora.date():
+            if atual > dt_agora + timedelta(minutes=10): # Margem de 10 min para o cliente preencher
+                if h_str not in ocupados:
+                    disponiveis.append(h_str)
+        else:
+            if h_str not in ocupados:
+                disponiveis.append(h_str)
+        
+        atual += timedelta(minutes=30)
+
     return jsonify(disponiveis)
 
 @app.route('/agendar', methods=['POST'])
 def agendar():
     d = request.json
+    dt_agendamento = datetime.strptime(d['data'], '%Y-%m-%dT%H:%M')
+    
+    # TRAVA FINAL: Bloqueio total de datas passadas no banco
+    if dt_agendamento < datetime.now():
+        return jsonify({"status": "erro", "mensagem": "Não é possível agendar no passado!"}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    try:
-        sql = "INSERT INTO agendamentos (cliente, telefone, servico, valor, data_hora, forma_pagamento) VALUES (%s, %s, %s, %s, %s, %s)"
-        cursor.execute(sql, (d['cliente'], d['telefone'], d['servico'], d['valor'], d['data'], d['pagamento']))
-        conn.commit()
-        return jsonify({"status": "sucesso"})
-    except Exception as e:
-        return jsonify({"status": "erro", "mensagem": str(e)}), 500
-    finally:
-        conn.close()
+    cursor.execute("INSERT INTO agendamentos (cliente, telefone, servico, valor, data_hora, forma_pagamento) VALUES (%s, %s, %s, %s, %s, %s)",
+                (d['cliente'], d['telefone'], d['servico'], d['valor'], d['data'], d['pagamento']))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "sucesso"})
 
 # 4. ROTAS ADMINISTRATIVAS
 ADMIN_HASH = generate_password_hash("1234")

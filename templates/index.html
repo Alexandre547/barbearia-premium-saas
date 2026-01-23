@@ -75,56 +75,45 @@
     </footer>
 
     <script>
-        // 1. BUSCAR HORÁRIOS NO SERVIDOR (POSTGRESQL)
-        async function buscarHorarios() {
-            const data = document.getElementById('data_agendamento').value;
-            const listaContainer = document.getElementById('lista_horarios');
-            
-            if (!data) return;
+        const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('data_agendamento').setAttribute('min', hoje);
 
-            listaContainer.innerHTML = "<p>Carregando horários...</p>";
+    async function buscarHorarios() {
+        const dataSel = document.getElementById('data_agendamento').value;
+        const container = document.getElementById('lista_horarios');
+        if (!dataSel) return;
 
-            try {
-                const response = await fetch('/horarios_disponiveis', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ data: data })
-                });
+        container.innerHTML = "Carregando...";
+        
+        try {
+            const res = await fetch('/horarios_disponiveis', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({data: dataSel}) 
+            });
+            const horarios = await res.json();
+            container.innerHTML = "";
 
-                const horarios = await response.json();
-                listaContainer.innerHTML = ""; // Limpa o carregando
-
-                if (horarios.length === 0) {
-                    listaContainer.innerHTML = "<p style='color: #f44336;'>Nenhum horário disponível ou barbearia fechada.</p>";
-                    return;
-                }
-
-                horarios.forEach(hora => {
-                    const btn = document.createElement('button');
-                    btn.type = "button";
-                    btn.className = "btn-horario";
-                    btn.innerText = hora;
-                    btn.onclick = () => selecionarHorario(btn, hora);
-                    listaContainer.appendChild(btn);
-                });
-
-            } catch (error) {
-                console.error("Erro ao buscar horários:", error);
-                listaContainer.innerHTML = "<p>Erro ao carregar horários.</p>";
+            if (horarios.length === 0) {
+                container.innerHTML = "<p style='color: #f44336;'>Sem horários disponíveis para esta data.</p>";
+                return;
             }
-        }
 
-        // 2. SELECIONAR HORÁRIO NA GRADE
-        function selecionarHorario(botao, hora) {
-            // Remove destaque de todos os outros
-            document.querySelectorAll('.btn-horario').forEach(b => b.classList.remove('selecionado'));
-            
-            // Destaca o clicado
-            botao.classList.add('selecionado');
-            
-            // Guarda o valor no input oculto
-            document.getElementById('horario_selecionado').value = hora;
+            horarios.forEach(h => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-horario';
+                btn.innerText = h;
+                btn.onclick = () => {
+                    document.querySelectorAll('.btn-horario').forEach(b => b.classList.remove('selecionado'));
+                    btn.classList.add('selecionado');
+                    document.getElementById('horario_selecionado').value = h;
+                };
+                container.appendChild(btn);
+            });
+        } catch (e) {
+            container.innerHTML = "Erro ao carregar horários.";
         }
+    }
 
     async function finalizarAgendamento() {
         const nome = document.getElementById('nome').value;
