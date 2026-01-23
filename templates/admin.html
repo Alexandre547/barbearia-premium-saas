@@ -7,60 +7,35 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body class="admin-body">
-
     <div class="dashboard-layout">
         <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2 style="color: var(--gold);">ADM</h2>
-            </div>
+            <h2 style="color: var(--gold); padding: 20px;">ADM</h2>
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" id="btn-dash" onclick="trocarAba('secao-dashboard', 'btn-dash')">Dashboard</a>
                 <a href="#" class="nav-item" id="btn-horarios" onclick="trocarAba('secao-horarios', 'btn-horarios')">Configurações</a>
                 <a href="/" class="nav-item">Visualizar Site</a>
-                <hr style="border: 0.1px solid #333; margin: 20px 0;">
-                <a href="/logout" class="nav-item" style="color: #f44336;">Sair</a>
+                <a href="/logout" class="nav-item" style="color: #f44336; margin-top: 20px;">Sair</a>
             </nav>
         </aside>
 
         <main class="main-content">
-            
             <div id="secao-dashboard" class="aba-conteudo">
                 <h1 class="page-title">Gestão da Barbearia</h1>
-                
                 <div class="stats-container">
-                    <div class="stat-card">
-                        <h3>LUCRO DE HOJE</h3>
-                        <p>R$ {{ "%.2f"|format(lucro_dia) }}</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>LUCRO DA SEMANA</h3>
-                        <p>R$ {{ "%.2f"|format(lucro_semana) }}</p>
-                    </div>
+                    <div class="stat-card"><h3>HOJE</h3><p>R$ {{ "%.2f"|format(lucro_dia) }}</p></div>
+                    <div class="stat-card"><h3>SEMANA</h3><p>R$ {{ "%.2f"|format(lucro_semana) }}</p></div>
                 </div>
-
                 <div class="table-container">
                     <table class="styled-table">
-                        <thead>
-                            <tr>
-                                <th>Data/Hora</th>
-                                <th>Cliente</th>
-                                <th>WhatsApp</th>
-                                <th>Serviço</th>
-                                <th>Valor</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>Data/Hora</th><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Ações</th></tr></thead>
                         <tbody>
                             {% for item in agendamentos %}
                             <tr id="linha-{{ item.id }}">
-                                <td>{{ item.data_hora.strftime('%d/%m/%Y %H:%M') if item.data_hora else 'N/A' }}</td>
+                                <td>{{ item.data_hora.strftime('%d/%m/%Y %H:%M') }}</td>
                                 <td>{{ item.cliente }}</td>
-                                <td>{{ item.telefone }}</td>
                                 <td>{{ item.servico }}</td>
-                                <td style="color: var(--gold); font-weight: bold;">R$ {{ "%.2f"|format(item.valor) }}</td>
-                                <td>
-                                    <button class="btn-delete" onclick="deletarAgendamento({{ item.id }})">Excluir</button>
-                                </td>
+                                <td style="color: var(--gold);">R$ {{ "%.2f"|format(item.valor) }}</td>
+                                <td><button class="btn-delete" onclick="deletarAgendamento({{ item.id }})">Excluir</button></td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -70,31 +45,21 @@
 
             <div id="secao-horarios" class="aba-conteudo" style="display: none;">
                 <h1 class="page-title">Configurar Expediente</h1>
-                <section class="stat-card" style="max-width: 600px;">
-                    <form id="formExpediente">
-                        <div class="input-group">
-                            <label>Dia da Semana</label>
-                            <select id="dia_semana">
-                                <option value="0">Segunda-feira</option>
-                                <option value="1">Terça-feira</option>
-                                <option value="2">Quarta-feira</option>
-                                <option value="3">Quinta-feira</option>
-                                <option value="4">Sexta-feira</option>
-                                <option value="5">Sábado</option>
-                                <option value="6">Domingo</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>Horário de Início</label>
-                            <input type="time" id="inicio">
-                        </div>
-                        <div class="input-group">
-                            <label>Horário de Fim</label>
-                            <input type="time" id="fim">
-                        </div>
-                        <button type="button" class="btn-agendar" onclick="salvarHorario()">SALVAR CONFIGURAÇÃO</button>
-                    </form>
-                </section>
+                <div class="stat-card" style="max-width: 800px;">
+                    <table class="styled-table">
+                        <thead><tr><th>Dia</th><th>Início</th><th>Fim</th></tr></thead>
+                        <tbody>
+                            {% for i, dia in [(0,'Seg'),(1,'Ter'),(2,'Qua'),(3,'Qui'),(4,'Sex'),(5,'Sab'),(6,'Dom')] %}
+                            <tr>
+                                <td>{{ dia }}</td>
+                                <td><input type="time" id="inicio-{{ i }}" class="input-admin" value="08:00"></td>
+                                <td><input type="time" id="fim-{{ i }}" class="input-admin" value="18:00"></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button class="btn-agendar" style="margin-top: 20px;" onclick="salvarConfiguracao()">SALVAR TUDO</button>
+                </div>
             </div>
         </main>
     </div>
@@ -108,53 +73,27 @@
         }
 
         async function deletarAgendamento(id) {
-    if(confirm("Deseja realmente excluir este agendamento?")) {
-        try {
-            // A chamada fetch deve bater exatamente na rota que criamos acima
-            const res = await fetch(`/deletar/${id}`, { 
-                method: 'DELETE' 
-            });
-
-            if(res.ok) { 
-                // Remove a linha da tabela visualmente
-                const linha = document.getElementById(`linha-${id}`);
-                if(linha) linha.remove();
-                
-                // Recarrega a página para que o Flask recalcule lucro_dia e lucro_semana
-                location.reload(); 
-            } else {
-                alert("Erro ao excluir no servidor.");
-            }
-        } catch (error) {
-            console.error("Erro na requisição:", error);
+            if(!confirm("Excluir agendamento?")) return;
+            const res = await fetch(`/deletar/${id}`, { method: 'DELETE' });
+            if(res.ok) location.reload();
         }
-    }
-}
 
-async function salvarExpediente() {
-    const configs = [];
-    // Captura os dados de todos os dias (0=Segunda, 6=Domingo)
-    for (let i = 0; i < 7; i++) {
-        configs.push({
-            dia: i,
-            inicio: document.getElementById(`inicio-${i}`).value,
-            fim: document.getElementById(`fim-${i}`).value
-        });
-    }
-
-    const res = await fetch('/configuracoes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(configs)
-    });
-
-    if (res.ok) {
-        alert("✅ Horários de atendimento salvos com sucesso!");
-        location.reload();
-    } else {
-        alert("❌ Erro ao salvar horários.");
-    }
-}
+        async function salvarConfiguracao() {
+            const configs = [];
+            for (let i = 0; i < 7; i++) {
+                configs.push({
+                    dia: i,
+                    inicio: document.getElementById(`inicio-${i}`).value,
+                    fim: document.getElementById(`fim-${i}`).value
+                });
+            }
+            const res = await fetch('/configuracoes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(configs)
+            });
+            if (res.ok) alert("✅ Configurações salvas!");
+        }
     </script>
 </body>
 </html>

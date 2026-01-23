@@ -76,100 +76,99 @@
 
     <script>
         const hoje = new Date().toISOString().split('T')[0];
-    document.getElementById('data_agendamento').setAttribute('min', hoje);
+        document.getElementById('data_agendamento').setAttribute('min', hoje);
 
-    async function buscarHorarios() {
-        const dataSel = document.getElementById('data_agendamento').value;
-        const container = document.getElementById('lista_horarios');
-        if (!dataSel) return;
+        async function buscarHorarios() {
+            const dataSel = document.getElementById('data_agendamento').value;
+            const container = document.getElementById('lista_horarios');
+            if (!dataSel) return;
 
-        container.innerHTML = "Carregando...";
-        
-        try {
-            const res = await fetch('/horarios_disponiveis', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({data: dataSel}) 
-            });
-            const horarios = await res.json();
-            container.innerHTML = "";
+            container.innerHTML = "Carregando...";
+            
+            try {
+                const res = await fetch('/horarios_disponiveis', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({data: dataSel}) 
+                });
+                const horarios = await res.json();
+                container.innerHTML = "";
 
-            if (horarios.length === 0) {
-                container.innerHTML = "<p style='color: #f44336;'>Sem horários disponíveis para esta data.</p>";
+                if (horarios.length === 0) {
+                    container.innerHTML = "<p style='color: #f44336;'>Sem horários disponíveis para esta data.</p>";
+                    return;
+                }
+
+                horarios.forEach(h => {
+                    const btn = document.createElement('button');
+                    btn.type = "button"; // Garante que o botão não envie o formulário
+                    btn.className = 'btn-horario';
+                    btn.innerText = h;
+                    btn.onclick = (e) => {
+                        e.preventDefault(); // Impede o "reset" ao clicar
+                        document.querySelectorAll('.btn-horario').forEach(b => b.classList.remove('selecionado'));
+                        btn.classList.add('selecionado');
+                        document.getElementById('horario_selecionado').value = h;
+                    };
+                    container.appendChild(btn);
+                });
+            } catch (e) {
+                container.innerHTML = "Erro ao carregar horários.";
+            }
+        }
+
+        async function finalizarAgendamento() {
+            const nome = document.getElementById('nome').value;
+            const telRaw = document.getElementById('whatsapp').value;
+            const servicoSelect = document.getElementById('servico');
+            const servicoNome = servicoSelect.value;
+            const preco = servicoSelect.options[servicoSelect.selectedIndex].dataset.preco;
+            const pagamento = document.getElementById('pagamento').value;
+            const dataSomente = document.getElementById('data_agendamento').value;
+            const horaSomente = document.getElementById('horario_selecionado').value;
+
+            if (!nome || !telRaw || !dataSomente || !horaSomente) {
+                alert("Por favor, preencha todos os campos e escolha um horário!");
                 return;
             }
 
-            horarios.forEach(h => {
-                const btn = document.createElement('button');
-                btn.className = 'btn-horario';
-                btn.innerText = h;
-                btn.onclick = () => {
-                    document.querySelectorAll('.btn-horario').forEach(b => b.classList.remove('selecionado'));
-                    btn.classList.add('selecionado');
-                    document.getElementById('horario_selecionado').value = h;
-                };
-                container.appendChild(btn);
-            });
-        } catch (e) {
-            container.innerHTML = "Erro ao carregar horários.";
+            // --- PULO DO GATO: CRIANDO AS VARIÁVEIS QUE FALTAVAM ---
+            const dataBR = dataSomente.split('-').reverse().join('/'); // Transforma 2026-01-23 em 23/01/2026
+            const hora = horaSomente; // Define a hora para a mensagem do WhatsApp
+
+            const dataISO = `${dataSomente}T${horaSomente}`;
+            const telLimpo = telRaw.replace(/\D/g, '');
+
+            const dados = { 
+                cliente: nome, 
+                telefone: telLimpo, 
+                servico: servicoNome, 
+                data: dataISO, 
+                pagamento: pagamento, 
+                valor: preco 
+            };
+
+            try {
+                const response = await fetch('/agendar', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(dados)
+                });
+
+                if (response.ok) {
+                    // Agora dataBR e hora existem e não vão dar erro!
+                    const msg = encodeURIComponent(`✅ *NOVO AGENDAMENTO*\n*Cliente:* ${nome}\n*Data:* ${dataBR} às ${hora}\n*Serviço:* ${servicoNome}`);
+                    window.open(`https://api.whatsapp.com/send?phone=5518988231687&text=${msg}`, '_blank');
+                    location.reload();
+                } else {
+                    const erroJson = await response.json();
+                    alert("⚠️ " + erroJson.mensagem); 
+                    buscarHorarios(); 
+                }
+            } catch (e) {
+                alert("Erro na conexão.");
+            }
         }
-    }
-
-    async function finalizarAgendamento() {
-        const nome = document.getElementById('nome').value;
-        const telRaw = document.getElementById('whatsapp').value;
-        const servicoSelect = document.getElementById('servico');
-        const servicoNome = servicoSelect.value;
-        const preco = servicoSelect.options[servicoSelect.selectedIndex].dataset.preco;
-        const pagamento = document.getElementById('pagamento').value;
-        const dataSomente = document.getElementById('data_agendamento').value;
-        
-        // CORREÇÃO: Pega apenas os 5 primeiros caracteres (ex: 08:30)
-        let horaSomente = document.getElementById('horario_selecionado').value;
-        if (horaSomente.length > 5) {
-            horaSomente = horaSomente.slice(0, 5);
-        }
-
-        if (!nome || !telRaw || !dataSomente || !horaSomente) {
-            alert("Por favor, preencha todos os campos e escolha um horário!");
-            return;
-        }
-
-        const dataISO = `${dataSomente}T${horaSomente}`;
-        const telLimpo = telRaw.replace(/\D/g, '');
-        const numeroProfissional = "5518988231687"; 
-
-        const dados = { 
-            cliente: nome, 
-            telefone: telLimpo, 
-            servico: servicoNome, 
-            data: dataISO, 
-            pagamento: pagamento, 
-            valor: preco 
-        };
-
-        try {
-        const response = await fetch('/agendar', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(dados)
-        });
-
-        if (response.ok) {
-            // Sucesso
-            const msg = encodeURIComponent(`✅ *NOVO AGENDAMENTO*\n*Cliente:* ${nome}\n*Data:* ${dataBR} às ${hora}`);
-            window.open(`https://api.whatsapp.com/send?phone=5518988231687&text=${msg}`, '_blank');
-            location.reload();
-        } else {
-            // Se o servidor retornar erro (como horário passado), mostramos o alerta e NÃO recarregamos a página
-            const erroJson = await response.json();
-            alert("⚠️ " + erroJson.mensagem); 
-            buscarHorarios(); // Atualiza a lista de horários para sumir com o que expirou
-        }
-    } catch (e) {
-        alert("Erro na conexão.");
-    }
-}
-</script>
+    </script>
 </body>
 </html>
